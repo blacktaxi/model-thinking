@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title></title>
+
+    <style type="text/css">
+        #worldmap {
+            background: #333;
+        }
+        
+        #worldmap td {
+            background: #000;
+            color: #fff;
+            font-size: 0.2em;
+            width: 4px;
+            height: 4px;
+        }
+        
+        .model .b, #worldmap .p {
+            background: #778;
+        }
+        
+        .model .w, #worldmap .r {
+            background: #fd3;
+        }
+
+        .model .y, #worldmap .y {
+            background: #0a0;
+        }
+    </style>
+    
+    <script type="text/javascript" src="jquery.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            window.onerror = function (a, b, c) {
+                alert('error: ' + a + b + c);
+            };
+            
+            viewModel.bind('happy_percent', function(v) {
+                $('#happycounter').html(''+v+'%');
+            });
+
+            viewModel.handle('world_created', function(world_size) {
+                var worldmap = $('#worldmap').html('');
+                for (var x = 0; x < world_size[0]; x++) {
+                    var tr = $(document.createElement('tr'));
+                    for (var y = 0; y < world_size[1]; y++) {
+                        tr.append(
+                                $(document.createElement('td'))
+                        .attr({ id: 'x'+x+'y'+y })
+                        );
+                    }
+                    $(worldmap).append(tr);
+                }
+            });
+
+            viewModel.handle('cell_updated', function(cell) {
+               $('#x'+cell.x+'y'+cell.y).attr('class', cell.val); 
+            });
+
+            viewModel.handle('world_updated', function(world) {
+                for (var x = 0; x < world.length; x++) {
+                    for (var y = 0; y < world[x].length; y++) {
+                        $('#x'+x+'y'+y).attr('class', world[x][y]);
+                    }
+                }
+            });
+            
+            viewModel.loaded();
+
+        });
+    </script>
+
+</head>
+<body>
+
+<h2>Thomas Schelling's model of class segregation</h2>
+
+<ul>
+    <li>
+        <h3>World</h3>
+        <div id='mapframe'>
+            <table id='worldmap' class='model' cellpadding="0" cellspacing="1"></table>
+        </div>
+        <div>
+            Citizens happy: <span id='happycounter'>?</span>
+        </div>
+        <div>
+            <h5>
+                Legend
+            </h5>
+            <ul>
+                <li class='model'>
+                    <span class='b'>X</span> -- poor
+                </li>
+                <li class='model'>
+                    <span class='w'>X</span> -- rich
+                </li>
+            </ul>
+        </div>
+        <div>
+            <h5>
+                World parameters
+            </h5>
+            <form>
+                <label for="width">Width</label>
+                <input id='width' type="text" value='50'/><br/>
+
+                <label for="height">Height</label>
+                <input id='height' type="text" value='50'/><br/>
+
+
+                <label for="density">Population density</label>
+                <input id='density' type="text" value='0.8'/><br/>
+
+                <label for="threshold">Happiness threshold</label>
+                <input id='threshold' type="text" value='0.7'/><br/>
+                <a href="#" onclick="viewModel.click_create_world($('#width').val(), $('#height').val(), $('#density').val(), $('#threshold').val())">Create</a>
+                <!--<a href="#" onclick="viewModel.click_create_world(100, 100, 0.8, 0.7)">Create</a>-->
+            </form>
+        </div>
+    </li>
+    <li>
+        <h3>Simulation</h3>
+        <div>
+            <a href='#' onclick='viewModel.click_start_life()'>Start</a>
+            <a href='#' onclick='viewModel.click_stop_life()'>Stop</a>
+        </div>
+    </li>
+</ul>
+
+
+
+</body>
+</html>
