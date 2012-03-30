@@ -1,4 +1,4 @@
-<img src="https://github.com/downloads/blacktaxi/model-thinking/schelling.png" align="right" />
+<img src="https://github.com/downloads/blacktaxi/model-thinking/schelling.png"/>
 
 An excercise of implementing Schelling's model of racial segregation.
 
