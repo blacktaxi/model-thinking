@@ -7,6 +7,7 @@
     <style type="text/css">
         #worldmap {
             background: #333;
+            border: 1px solid #333;
         }
         
         #worldmap td {
@@ -31,8 +32,24 @@
     </style>
     
     <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript">
+    <script type="application/javascript">
         $(function () {
+            var cell_size = 6;
+            var cell_styles = {
+                '': 'rgb(0,0,0)',
+                'p': 'rgb(128,128,132)',
+                'r': 'rgb(255,232,24)',
+                'y': 'rgb(0,162,0)'
+            };
+
+            function redraw_cell(x, y, val) {
+                var ctx = document.getElementById('worldmap').getContext('2d');
+                ctx.fillStyle = cell_styles[val];
+                ctx.fillRect(
+                    x * cell_size, y * cell_size,
+                    cell_size - 1, cell_size - 1);
+            };
+
             window.onerror = function (a, b, c) {
                 alert('error: ' + a + b + c);
             };
@@ -42,33 +59,24 @@
             });
 
             viewModel.handle('world_created', function(world_size) {
-                var worldmap = $('#worldmap').html('');
-                for (var x = 0; x < world_size[0]; x++) {
-                    var tr = $(document.createElement('tr'));
-                    for (var y = 0; y < world_size[1]; y++) {
-                        tr.append(
-                                $(document.createElement('td'))
-                        .attr({ id: 'x'+x+'y'+y })
-                        );
-                    }
-                    $(worldmap).append(tr);
-                }
+                var worldmap = $('#worldmap');
+                worldmap[0].width = cell_size * world_size[0] - 1;
+                worldmap[0].height = cell_size * world_size[1] - 1;
             });
 
             viewModel.handle('cell_updated', function(cell) {
-               $('#x'+cell.x+'y'+cell.y).attr('class', cell.val); 
+                redraw_cell(cell.x, cell.y, cell.val);
             });
 
             viewModel.handle('world_updated', function(world) {
                 for (var x = 0; x < world.length; x++) {
                     for (var y = 0; y < world[x].length; y++) {
-                        $('#x'+x+'y'+y).attr('class', world[x][y]);
+                        redraw_cell(x, y, world[x][y]);
                     }
                 }
             });
             
             viewModel.loaded();
-
         });
     </script>
 
@@ -81,7 +89,7 @@
     <li>
         <h3>World</h3>
         <div id='mapframe'>
-            <table id='worldmap' class='model' cellpadding="0" cellspacing="1"></table>
+            <canvas id='worldmap' height='300' width='300'></canvas>
         </div>
         <div>
             Citizens happy: <span id='happycounter'>?</span>
