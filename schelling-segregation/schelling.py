@@ -111,31 +111,24 @@ class SchellingsModel(QtCore.QObject):
 
     #
 
-#    def do_world_heartbeat(self):
-#        print 'heartbeat...'
-#        
-#        pop = list(self.population)
-#        random.shuffle(pop)
-#
-#        moved = 0
-#        
-#        for c in pop:
-#            if not c.is_happy_with_neighbors(self.neighbors_for_citizen(c)):
-#                self.move_citizen(c.address, self.random_free_location())
-#                moved += 1
-#                
-#        print 'moved: ', moved
+    def do_world_heartbeat(self, max_moves=200):
+        print 'heartbeat...'
+
+        pop = list(self.population)
+        random.shuffle(pop)
+
+        moved = 0
+        for c in pop:
+            if not c.is_happy_with_neighbors(self.neighbors_for_citizen(c)):
+                self.move_citizen(c.address, self.random_free_location())
+                moved += 1
+            if moved >= max_moves: break
+
+        print 'moved: ', moved
         
     def calc_happy_percent(self):
         return int(float(len([c for c in self.population if self.is_citizen_happy(c)])) / len(self.population) * 100 \
             if len(self.population) > 0 else 0)
-
-    def do_world_heartbeat(self):
-        """Choose a random citizen and "think" for them."""
-        citizen = random.choice(self.population)
-        
-        if not self.is_citizen_happy(citizen):
-            self.move_citizen(citizen.address, self.random_free_location())
 
 #
 
