@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import datetime
+import logging
 
 import random
 random.seed()
@@ -32,7 +33,7 @@ class Citizen(object):
     def is_happy_with_neighbors(self, neighbors):
         return self.neighbors_alike(neighbors) >= self.happiness_threshold
 
-class SchellingsModel(QtCore.QObject):
+class SchellingSegregationModel(QtCore.QObject):
     cell_updated = Event(variant)
     
     def __init__(self, world_size=(20, 20)):
@@ -96,7 +97,12 @@ class SchellingsModel(QtCore.QObject):
         y = citizen.address[1]
 
         return filter(lambda v: v is not None, [
-            self.world_cell((x + xd, y + yd,)) for xd in [-1, 0, 1] for yd in [-1, 0, 1] if ((0 <= x + xd < w) and (0 <= y + yd < h) and (not (xd == yd == 0)))
+            self.world_cell((x + xd, y + yd,)) for
+                xd in [-1, 0, 1] for
+                yd in [-1, 0, 1] if
+                    ((0 <= x + xd < w) and
+                    (0 <= y + yd < h) and
+                    (not (xd == yd == 0)))
         ])
 
     def random_free_location(self):
@@ -133,7 +139,7 @@ class SchellingsModel(QtCore.QObject):
 #
 
 @bridged_view_model
-class RacialSegregationViewModel(object):
+class ViewModel(object):
     # user events
     click_start_life = Event()
     click_stop_life = Event()
@@ -148,52 +154,64 @@ class RacialSegregationViewModel(object):
     # properties
     happy_percent = Property()
 
+    def on_happy_percent_updated(self, new_val):
+        happy_percent = new_val
+
+    def on_world_created(self, world_size):
+        self.world_created.emit(world_size)
+
+    def on_world_updated(self, new_world):
+        self.world_updated.emit(new_world)
+
+    def on_cell_updated(self, updateargs):
+        self.cell_updated.emit(updateargs)
+
 #
 
-class Controller(QtCore.QObject):
+class Model(QtCore.QObject):
+    world_created = Event(variant)
+    world_updated = Event(variant)
+    happy_percent_updated = Event(int)
+    cell_updated = Event(variant)
+
     def __init__(self):
         QtCore.QObject.__init__(self)
         
-        self.model = SchellingsModel((100, 100,))
-        self.viewmodel = RacialSegregationViewModel()
-
-        # connections
-        self.viewmodel.click_start_life.connect(self.start_life)
-        self.viewmodel.click_stop_life.connect(self.stop_life)
-        self.viewmodel.click_create_world.connect(self.create_world)
-        self.viewmodel.loaded.connect(lambda: self.create_world(50, 50, 0.8, 0.5))
+        self.world = SchellingSegregationModel((100, 100,))
 
     def populate_world(self, density=0.85, happiness_threshold=0.60):
         # citizen types
         types = ['p', 'r']
 
-        for _ in xrange(int(self.model.world_size[0] * self.model.world_size[1] * density)):    
-            self.model.add_citizen(Citizen(random.choice(types), happiness_threshold), self.model.random_free_location())
+        for _ in range(int(self.world.world_size[0] * self.world.world_size[1] * density)):    
+            self.world.add_citizen(Citizen(random.choice(types), happiness_threshold), self.world.random_free_location())
 
     def render_world(self):
-        result = [[c.type if c is not None else '' for c in line] for line in self.model.world]
+        result = [[c.type if c is not None else '' for c in line] for line in self.world.world]
         return result
+
+    def on_cell_updated(self, updateargs):
+        self.cell_updated.emit(updateargs)
 
     def start_life(self):
         def tfunc():
-            self.model.cell_updated.connect(self.viewmodel.cell_updated)
-
+            self.world.cell_updated.connect(self.on_cell_updated)
             self._should_stop_life = False
             
             skip = 0
             while not self._should_stop_life: 
-                self.model.do_world_heartbeat()
-                self.model.do_world_heartbeat()
+                self.world.do_world_heartbeat()
+                self.world.do_world_heartbeat()
                 
                 skip += 1
                 if skip > 5000:
-                    self.viewmodel.happy_percent = self.model.calc_happy_percent()
+                    self.happy_percent_updated.emit(self.world.calc_happy_percent())
+#                    self.viewmodel.happy_percent = self.model.calc_happy_percent()
                     skip = 0
                 
                 time.sleep(0.001)
-                #self.viewmodel.world_updated.emit(self.render_world())
-                
-            self.model.cell_updated.disconnect(self.viewmodel.cell_updated)
+
+            self.world.cell_updated.disconnect(self.on_cell_updated)
                 
         threading.Thread(target=tfunc).start()
 
@@ -201,13 +219,13 @@ class Controller(QtCore.QObject):
         self._should_stop_life = True
         
     def create_world(self, width, height, density, threshold):
-        print 'creating new world'
+        logging.info('creating new world')
         
-        self.model.init_world((width, height,))
+        self.world.init_world((width, height,))
         self.populate_world(density, threshold)
 
-        self.viewmodel.world_created.emit(self.model.world_size)
-        self.viewmodel.world_updated.emit(self.render_world())
+        self.world_created.emit(self.world.world_size)
+        self.world_updated.emit(self.render_world())
     
 #
 
@@ -215,16 +233,27 @@ def main():
     app = QtGui.QApplication([])
 
     #
+    model = Model()
+    viewmodel = ViewModel()
 
-    ctrlr = Controller()    
+    # connections
+    viewmodel.click_start_life.connect(model.start_life)
+    viewmodel.click_stop_life.connect(model.stop_life)
+    viewmodel.click_create_world.connect(model.create_world)
+    viewmodel.loaded.connect(lambda: model.create_world(100, 100, 0.8, 0.5))
 
+    model.world_created.connect(viewmodel.on_world_created)
+    model.world_updated.connect(viewmodel.on_world_updated)
+    model.cell_updated.connect(viewmodel.on_cell_updated)
+    model.happy_percent_updated.connect(viewmodel.on_happy_percent_updated)
+
+    #
     view = create_webview(
         './views/schelling.html',
-        {'viewModel': ctrlr.viewmodel}
+        {'viewModel': viewmodel}
     )
 
     #
-
     window = QtGui.QMainWindow()
     window.setCentralWidget(view)
     window.show()
